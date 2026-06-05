@@ -1,0 +1,34 @@
+server:
+  host: "localhost"
+  port: 8000
+  portfrontend: "http://localhost:5173"
+  keypassword: ""
+
+database:
+  username: ""
+  password: "@"
+  name: ""
+  host: ""
+  port:
+
+Cache:
+  username: ""
+  password: ""
+  host: ""
+  port:
+
+gmail:
+  host: ""
+  port: 587
+  service: ""
+  mail: ""
+  password: ""
+
+telegram:
+  bottoken: ""
+  chatid: ""
+
+rabitmq:
+  username: ""
+  password: ""
+  url: ""

@@ -1,0 +1,95 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    name: Validate PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+
+      - name: Check for merge conflicts
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          if git merge-tree $(git merge-base HEAD origin/${{ github.base_ref }}) HEAD origin/${{ github.base_ref }} | grep -q "<<<<<<< .our"; then
+            echo "❌ Merge conflicts detected"
+            exit 1
+          fi
+          echo "✅ No merge conflicts"
+
+      - name: Check file size
+        run: |
+          large_files=$(find . -type f -size +5M -not -path "./.git/*" -not -path "./vendor/*")
+          if [ -n "$large_files" ]; then
+            echo "❌ Large files detected (>5MB):"
+            echo "$large_files"
+            exit 1
+          fi
+          echo "✅ No large files detected"
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run CSpell
+        uses: streetsidesoftware/cspell-action@v8
+        with:
+          config: ".github/cspell.json"
+          files: "**/*.{go,md,yml,yaml}"
+          incremental_files_only: true
+
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          FILES_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+          LINES_CHANGED=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | awk '{print $4+$6}')
+
+          echo "Files changed: $FILES_CHANGED"
+          echo "Lines changed: $LINES_CHANGED"
+
+          if [ $FILES_CHANGED -gt 50 ]; then
+            echo "⚠️ Warning: PR changes more than 50 files ($FILES_CHANGED files)"
+          fi
+
+          if [ $LINES_CHANGED -gt 1000 ]; then
+            echo "⚠️ Warning: PR changes more than 1000 lines ($LINES_CHANGED lines)"
+          fi

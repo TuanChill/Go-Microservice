@@ -1,0 +1,77 @@
+services:
+  # TODO: POSTGRESQL
+  postgresql:
+    container_name: postgresql
+    # Image version PG
+    image: postgres:latest
+    # Not restart when db crashes
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}" # Database name from environment variable
+      POSTGRES_USER: "${POSTGRES_USER}" # Username from environment variable
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}" # Password from environment variable
+      PGDATA: "/data/postgres" # Location of the PostgreSQL data files
+    volumes:
+      - db_data:/var/lib/postgresql/data/postgres:ro # Mount a volume for database data in read-only mode
+      - ./migrations:/docker-entrypoint-initdb.d # Initial SQL script for database setup
+    env_file:
+      - .env # Load environment variables from .env file
+    ports:
+      - "${POSTGRES_PORT_MAPPING}:${POSTGRES_PORT}" # Map the container port to the host port
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'", # Check if PostgreSQL is ready
+        ]
+      interval: 10s # Interval between health checks
+      timeout: 3s # Health check timeout
+      retries: 3 # Number of retries before marking the service as unhealthy
+
+  # TODO: CRON JOB
+  # Defines a service named "cron_service" for running cron jobs.
+  cron_service:
+    # Specifies the name of the container as "cron_service".
+    container_name: cron_service
+    # Restarts the container unless explicitly stopped.
+    restart: unless-stopped
+    # Builds the container using the specified Dockerfile and target.
+    build:
+      # Specifies the build context as the current directory.
+      context: .
+      # Specifies the path to the Dockerfile for building the container.
+      dockerfile: ./third_party/docker/go/Dockerfile-cron
+    # Loads environment variables from the specified .env file.
+    env_file:
+      - .env
+    environment:
+      ENV: "pro" # Port for the service
+    # Specifies that this service depends on the "postgresql" service.
+    depends_on:
+      - postgresql
+
+  # # TODO: MESSAGE QUEUE
+  # # Defines a service named "queue_service" for running cron jobs.
+  queue_service:
+    # Specifies the name of the container as "queue_service".
+    container_name: queue_service
+    # Restarts the container unless explicitly stopped.
+    restart: unless-stopped
+    # Builds the container using the specified Dockerfile and target.
+    build:
+      # Specifies the build context as the current directory.
+      context: .
+      # Specifies the path to the Dockerfile for building the container.
+      dockerfile: ./third_party/docker/go/Dockerfile-queue
+    # Loads environment variables from the specified .env file.
+    env_file:
+      - .env
+    environment:
+      ENV: "pro" # Port for the service
+    # Specifies that this service depends on the "postgresql" service.
+    depends_on:
+      - postgresql
+
+# Use local driver for the volume
+volumes:
+  db_data:
+    driver: local

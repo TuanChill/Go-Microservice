@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_deploy-on-aws_awspricing__get_pricing",
+      "mcp__plugin_deploy-on-aws_awspricing__get_pricing_service_attributes",
+      "mcp__plugin_deploy-on-aws_awspricing__get_pricing_attribute_values",
+      "Bash(rtk aws *)",
+      "mcp__ccs-websearch__WebSearch",
+      "WebFetch(domain:cloud-images.ubuntu.com)",
+      "Bash(chmod 400 ~/.ssh/uat-app-key.pem)",
+      "Bash(ssh *)",
+      "Bash(scp -i ~/.ssh/uat-app-key.pem /tmp/uat-app ubuntu@47.130.249.136:/opt/app/app)",
+      "Bash(scp -i ~/.ssh/uat-app-key.pem /tmp/config.uat.yaml ubuntu@47.130.249.136:/opt/app/config.yaml)",
+      "Bash(scp -i ~/.ssh/uat-app-key.pem /tmp/uat-app.env ubuntu@47.130.249.136:/opt/app/.env)",
+      "Bash(rtk read *)",
+      "Bash(rtk curl *)"
+    ]
+  }
+}
