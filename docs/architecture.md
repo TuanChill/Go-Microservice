@@ -2,210 +2,99 @@
 
 ## Overview
 
-Go backend template providing secure authentication with JWT, OTP, two-factor auth, social login, and device management. Built on Gin, PostgreSQL, Redis, RabbitMQ, and Firebase.
+This repository is transitioning into a lean Go microservice template. The target is a reusable single-service foundation with explicit runtime bootstrap, optional infrastructure adapters, transitional entrypoints, and starter deployment assets.
 
----
+## Current State
 
-## Stack
+The old auth application code still exists during transition. New template-facing code is additive and lives in:
 
-| Layer | Technology |
-|---|---|
-| HTTP Framework | Gin |
-| Database | PostgreSQL (via `lib/pq`) |
-| Cache | Redis (`go-redis/v9`) |
-| Message Queue | RabbitMQ (`amqp091-go`) |
-| Auth Provider | Firebase Admin SDK |
-| Config | Viper + `.env` (godotenv) |
-| Code Generation | SQLC |
-| API Docs | Swagger (swaggo) |
-| Hot Reload | Air / fsnotify |
-
----
-
-## Directory Structure
-
-```
-.
-├── cmd/
-│   ├── server/main.go       # HTTP API server entry point
-│   ├── cronjob/main.go      # Scheduled tasks entry point
-│   ├── queue/main.go        # RabbitMQ consumer entry point
-│   └── cli/                 # CLI tools
-│
-├── configs/
-│   ├── config.go            # Viper config loader
-│   ├── yaml/
-│   │   ├── config.dev.yml
-│   │   └── config.prod.yml
-│   └── common/
-│       ├── constants/       # App-wide constants, RabbitMQ keys
-│       └── utils/           # Shared utilities (AsyncHandler, etc.)
-│
-├── global/
-│   └── global.go            # Singleton connections: DB, Cache, AdminSdk, MessageQueue, Cfg
-│
-├── internal/
-│   ├── controllers/         # HTTP handlers — validate input, call service, return response
-│   │   └── initialization/  # DB/Redis/RabbitMQ connection factories
-│   ├── middlewares/         # Gin middleware chain (auth, rate limit, CORS, etc.)
-│   ├── models/              # Request/response structs, DB models
-│   ├── repo/                # Data access layer — SQL queries, Redis ops
-│   │   └── redis/           # Redis-specific repo operations
-│   ├── routers/             # Route registration and middleware wiring
-│   ├── service/             # Business logic layer
-│   └── messaging/           # RabbitMQ producer and consumer
-│
-├── migrations/
-│   ├── init/                # DDL migrations (run once)
-│   └── query/               # SQLC query files
-│
-├── pkg/
-│   ├── helpers/             # Shared helpers (JWT, hash, validate)
-│   ├── mail/                # SMTP email sender
-│   └── setting/             # Firebase SDK init
-│
-├── response/                # Unified HTTP response helpers and error codes
-├── third_party/
-│   └── telegram/            # Telegram bot integration
-├── tests/                   # Integration/manual test scripts
-└── docs/
-    └── swagger/             # Auto-generated Swagger docs
+```text
+cmd/api
+cmd/worker
+cmd/migrate
+internal/app
+internal/config
+internal/platform
+internal/health
 ```
 
----
+Legacy paths remain temporarily:
 
-## Request Lifecycle
-
-```
-Client Request
-     │
-     ▼
-Middleware Chain (in order):
-  1. IPBlackList          — block banned IPs
-  2. CORSMiddleware        — cross-origin headers
-  3. SecurityHeaders       — Helmet-style headers
-  4. HeadersMiddlewares    — custom request headers
-  5. RequestSizeLimiter    — max 1 MB body
-  6. RateLimiter           — 5 req/s, burst 10
-  7. RequestLogging        — structured access log
-  8. PathTraversal         — block `../` attacks
-  9. ContentTypeValidation — enforce JSON
- 10. SanitizeParams        — strip dangerous chars
-     │
-     ▼
-Router (routers/router.go)
-     │
-     ▼
-Controller (internal/controllers/)
-  • Bind & validate request
-  • Call service function
-  • Call response helper
-     │
-     ▼
-Service (internal/service/)
-  • Business logic
-  • Cache-aside (Redis)
-  • Call repo for DB ops
-  • Publish MQ events
-     │
-     ├── Repository (internal/repo/)
-     │     • Raw SQL via database/sql
-     │     • Returns (result, error)
-     │
-     └── Cache (internal/repo/redis/)
-           • HGetAll / HSet / Expire
+```text
+cmd/server
+cmd/queue
+cmd/cronjob
+global
+internal/controllers
+internal/service
+internal/repo
 ```
 
----
+## Target Runtime Flow
 
-## Global Connections (`global/global.go`)
-
-Initialized once via `init()` at process start. Panic on failure — fail fast.
-
-```go
-global.DB           // *sql.DB       — PostgreSQL
-global.Cache        // *redis.Client — Redis
-global.AdminSdk     // *firebase.App — Firebase
-global.MessageQueue // *amqp.Connection — RabbitMQ
-global.Cfg          // models.Config — loaded from YAML + .env
+```text
+cmd/<runtime>/main.go
+  → internal/config.Load
+  → internal/app.Bootstrap
+  → internal/platform adapters
+  → runtime-specific server/worker/migrate behavior
+  → internal/app.Shutdown
 ```
 
----
+## Runtime Entrypoints
 
-## Layered Rules
-
-| Layer | Allowed imports | Forbidden |
+| Entrypoint | Status | Purpose |
 |---|---|---|
-| Controller | service, response, gin | repo, global.DB |
-| Service | repo, global, models, pkg | gin (HTTP types) |
-| Repository | database/sql, global.DB, models | service, gin |
-| Middleware | response, global, pkg | service, repo |
+| `cmd/api` | transitional | Starts API with new bootstrap plus existing router. |
+| `cmd/worker` | transitional | Boots worker dependencies; real queue consumer remains `cmd/queue`. |
+| `cmd/migrate` | transitional | Boots migration dependencies; schema execution remains existing migration workflow. |
+| `cmd/server` | legacy | Existing API server. |
+| `cmd/queue` | legacy | Existing RabbitMQ consumer. |
+| `cmd/cronjob` | legacy | Existing scheduled job process. |
 
----
+## Infrastructure Adapters
 
-## Auth Flow
-
-```
-Register → email verification link → VerificationAccount
-Login    → JWT access token (header) + refresh token (cookie) + device_id (header)
-Refresh  → RefetchTokenMiddleware validates cookie → /renew-token
-Logout   → revokes device session from DB + clears Redis cache
-2FA      → EnableTwoFactor → SendOtpUpdateEmail → VerifyOtp
-Social   → Firebase ID token → /login-social
+```text
+internal/platform/logger
+internal/platform/postgres
+internal/platform/redis
+internal/platform/rabbitmq
 ```
 
-**Token delivery:**
-- `Authorization: Bearer <access_token>` — request header
-- `user_login` cookie — refresh token (httpOnly)
-- `X-Device-Id` header — required on protected routes
+Adapters expose explicit constructors and return errors to callers. They do not open network connections from package `init()`.
 
----
+## Dependency Ownership
 
-## Cache Strategy
+`internal/app.App` owns resources created through the new bootstrap path:
 
-Cache-aside pattern per user profile:
+- config,
+- logger,
+- optional PostgreSQL connection,
+- optional Redis client,
+- optional RabbitMQ connection.
 
-```
-Read:  HGetAll(cacheKey) → hit? return cached : query DB → HSet cache → return
-Write: update DB → Del(cacheKey)
-```
+`App.Shutdown` closes owned resources and aggregates close errors.
 
-Cache key format defined in `configs/common/constants/`.
+## Health Endpoints
 
----
+`internal/health` exposes:
 
-## Message Queue
+- `/health/live`
+- `/health/ready`
 
-| Event | Exchange/Queue | Direction |
-|---|---|---|
-| Email send | `mail.*` | producer → consumer |
-| Account events | `user.*` | producer → consumer |
+Current readiness is transitional. It supports dependency-aware callbacks, but the new API command currently registers a nil readiness callback while legacy router dependencies are still global.
 
-Consumer runs as a separate process (`cmd/queue/`). Producer lives inside service layer.
+## Deployment Assets
 
----
-
-## Database Schema (migrations/init/)
-
-| Table | Purpose |
+| Path | Purpose |
 |---|---|
-| `users` | Core user record |
-| `password_history` | Prevent password reuse |
-| `devices` | Per-device session tracking |
-| `social_logins` | OAuth provider links |
-| `otp` | One-time passwords |
-| `verifications` | Email verification tokens |
+| `Dockerfile` | Multi-stage build for selected command via `APP_CMD`. |
+| `docker-compose.yml` | Local stack: PostgreSQL, Redis, RabbitMQ, API. |
+| `.env.example` | Safe placeholder local config. |
+| `deployments/k8s/` | Starter Kubernetes manifests. |
 
----
+Kubernetes files are starter manifests only. Production users must customize image registry, secrets backend, resource sizing, ingress/TLS, autoscaling, network policy, and worker probes.
 
-## Error Code Ranges (`response/customErrorCode.go`)
+## Lean Template Boundary
 
-| Range | Domain |
-|---|---|
-| 1000s | General |
-| 2000s | Database |
-| 3000s | Validation |
-| 4000s | Auth |
-| 5000s+ | Resource / external / user-specific |
-
-Full table: `docs/CODETABLE.md`
+Firebase/auth are not default template core. They should be removed or isolated as optional material in later cleanup.

@@ -1,77 +1,71 @@
 services:
-  # TODO: POSTGRESQL
   postgresql:
-    container_name: postgresql
-    # Image version PG
-    image: postgres:latest
-    # Not restart when db crashes
+    image: postgres:16-alpine
+    container_name: go_service_postgresql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: "${POSTGRES_DB}" # Database name from environment variable
-      POSTGRES_USER: "${POSTGRES_USER}" # Username from environment variable
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}" # Password from environment variable
-      PGDATA: "/data/postgres" # Location of the PostgreSQL data files
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - db_data:/var/lib/postgresql/data/postgres:ro # Mount a volume for database data in read-only mode
-      - ./migrations:/docker-entrypoint-initdb.d # Initial SQL script for database setup
-    env_file:
-      - .env # Load environment variables from .env file
+      - db_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${POSTGRES_PORT_MAPPING}:${POSTGRES_PORT}" # Map the container port to the host port
+      - "${POSTGRES_PORT_MAPPING:-5432}:5432"
     healthcheck:
-      test: [
-          "CMD-SHELL",
-          "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'", # Check if PostgreSQL is ready
-        ]
-      interval: 10s # Interval between health checks
-      timeout: 3s # Health check timeout
-      retries: 3 # Number of retries before marking the service as unhealthy
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-  # TODO: CRON JOB
-  # Defines a service named "cron_service" for running cron jobs.
-  cron_service:
-    # Specifies the name of the container as "cron_service".
-    container_name: cron_service
-    # Restarts the container unless explicitly stopped.
+  redis:
+    image: redis:7-alpine
+    container_name: go_service_redis
     restart: unless-stopped
-    # Builds the container using the specified Dockerfile and target.
-    build:
-      # Specifies the build context as the current directory.
-      context: .
-      # Specifies the path to the Dockerfile for building the container.
-      dockerfile: ./third_party/docker/go/Dockerfile-cron
-    # Loads environment variables from the specified .env file.
-    env_file:
-      - .env
-    environment:
-      ENV: "pro" # Port for the service
-    # Specifies that this service depends on the "postgresql" service.
-    depends_on:
-      - postgresql
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-  # # TODO: MESSAGE QUEUE
-  # # Defines a service named "queue_service" for running cron jobs.
-  queue_service:
-    # Specifies the name of the container as "queue_service".
-    container_name: queue_service
-    # Restarts the container unless explicitly stopped.
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: go_service_rabbitmq
     restart: unless-stopped
-    # Builds the container using the specified Dockerfile and target.
-    build:
-      # Specifies the build context as the current directory.
-      context: .
-      # Specifies the path to the Dockerfile for building the container.
-      dockerfile: ./third_party/docker/go/Dockerfile-queue
-    # Loads environment variables from the specified .env file.
-    env_file:
-      - .env
     environment:
-      ENV: "pro" # Port for the service
-    # Specifies that this service depends on the "postgresql" service.
-    depends_on:
-      - postgresql
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-# Use local driver for the volume
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_CMD: api
+    container_name: go_service_api
+    restart: unless-stopped
+    env_file:
+      - .env.example
+    ports:
+      - "${PORT:-8000}:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   db_data:
     driver: local

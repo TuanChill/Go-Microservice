@@ -24,7 +24,7 @@ func CreateAndGetUidTestFireBase(c *gin.Context) {
 	u, err := helpers.CreateUser(c, email, password)
 	if err != nil {
 		errMsg := fmt.Errorf("error creating user: %v", err)
-		log.Fatalf(errMsg.Error())
+		log.Fatalf("%s", errMsg.Error())
 	}
 
 	// Get the ID Token for the user

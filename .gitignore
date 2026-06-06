@@ -40,3 +40,6 @@ third_party/firebase/go-auth-pro-firebase-admin-sdk.json
 *.tfstate.lock.info
 .terraform.lock.hcl
 terraform/environments/**/terraform.tfvars
+
+# AI folder
+/plans

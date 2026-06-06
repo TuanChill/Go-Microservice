@@ -25,7 +25,7 @@ func getAuthClient(c *gin.Context) *auth.Client {
 	authClient, err := global.AdminSdk.Auth(c.Request.Context())
 	if err != nil {
 		errMsg := fmt.Errorf("error creating user: %v", err)
-		log.Fatalf(errMsg.Error())
+		log.Fatalf("%s", errMsg.Error())
 		return nil
 	}
 

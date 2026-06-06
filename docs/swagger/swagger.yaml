@@ -241,7 +241,7 @@ definitions:
         description: Valid is true if String is not NULL
         type: boolean
     type: object
-host: 103.82.195.138:8000
+host: localhost:8000
 info:
   contact: {}
   description: This is server auth API in Go using Gin framework

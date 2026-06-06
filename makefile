@@ -5,6 +5,9 @@ include .env
 export $(shell sed 's/=.*//' .env)
 
 # * FILE RUN GO
+GO_API := ./cmd/api
+GO_WORKER := ./cmd/worker
+GO_MIGRATE := ./cmd/migrate
 GO_SERVER_PRO := ./cmd/server/main.go
 GO_SERVER_DEV:= ./fsnotify.go
 GO_SERVER_CRON := ./cmd/cronjob/main.go
@@ -14,10 +17,10 @@ GO_CONSUMER := ./cmd/queue/main.go
 DOCKER_COMPOSE_DEV := docker-compose.dev.yml
 DOCKER_COMPOSE_PRO := docker-compose.pro.yml
 
-# * DOCKER HUB
-SERVER_IMAGE_NAME := nguyentientai/go-secure-auth-pro:lastest
-CRON_IMAGE_NAME := nguyentientai/go_cronjob_auth:lastest
-QUEUE_IMAGE_NAME := nguyentientai/go_message_queue_auth:lastest
+# * DOCKER IMAGES
+SERVER_IMAGE_NAME := go-service-api:local
+CRON_IMAGE_NAME := go-service-cron:local
+QUEUE_IMAGE_NAME := go-service-worker:local
 
 
 # * DOCKER FILE
@@ -38,6 +41,15 @@ SWAGGER_DIR=./docs/swagger
 start:
 	go run $(GO_SERVER_PRO)
 
+api:
+	go run $(GO_API)
+
+worker:
+	go run $(GO_WORKER)
+
+migrate:
+	go run $(GO_MIGRATE)
+
 dev:
 	go run $(GO_SERVER_DEV)
 
@@ -51,6 +63,21 @@ consumer:
 	go run $(GO_CONSUMER)
     
 ################# TODO: DOCKER #################
+docker-build-api:
+	docker build --build-arg APP_CMD=api -t go-service-api:local .
+
+docker-build-worker:
+	docker build --build-arg APP_CMD=worker -t go-service-worker:local .
+
+compose-up:
+	docker compose up -d --build
+
+compose-down:
+	docker compose down
+
+compose-config:
+	docker compose config
+
 build-pro:
 	docker-compose -f $(DOCKER_COMPOSE_PRO) up -d --build
 
@@ -73,63 +100,6 @@ update-cron:
 
 update-image: update-server update-cron
 	@echo "Both server and cron images updated successfully."
-
-################# TODO: UAT DEPLOY #################
-UAT_HOST := 47.130.249.136
-UAT_KEY := ~/.ssh/uat-app-key.pem
-UAT_DIR := /opt/app
-
-deploy-uat:
-	@echo "Building for Linux amd64..."
-	GOOS=linux GOARCH=amd64 go build -o /tmp/uat-app ./cmd/server
-	@echo "Copying binary to UAT server..."
-	scp -i $(UAT_KEY) /tmp/uat-app ubuntu@$(UAT_HOST):$(UAT_DIR)/app
-	@echo "Restarting app on UAT..."
-	ssh -i $(UAT_KEY) ubuntu@$(UAT_HOST) "sudo kill -9 \$$(pgrep app) 2>/dev/null; cd $(UAT_DIR) && nohup sudo ./app > /tmp/app.log 2>&1 &"
-	@echo "Waiting for startup..."
-	@sleep 3
-	@echo "Testing endpoint..."
-	@curl -s http://$(UAT_HOST):8080/ping | head -1 || echo "FAILED - check logs: ssh -i $(UAT_KEY) ubuntu@$(UAT_HOST) 'tail /tmp/app.log'"
-	@echo ""
-	@echo "Done! App running at http://$(UAT_HOST):8080"
-
-deploy-uat-ssh:
-	ssh -i $(UAT_KEY) ubuntu@$(UAT_HOST)
-
-deploy-uat-logs:
-	ssh -i $(UAT_KEY) ubuntu@$(UAT_HOST) "tail -30 /tmp/app.log"
-
-deploy-uat-restart:
-	ssh -i $(UAT_KEY) ubuntu@$(UAT_HOST) "sudo kill -9 \$$(pgrep app) 2>/dev/null; cd $(UAT_DIR) && nohup sudo ./app > /tmp/app.log 2>&1 &"
-
-################# TODO: DOCKER HUB #################
-# Build and tag the server image
-server-image-tag:
-	docker build -t $(SERVER_IMAGE_NAME) -f $(DOCKER_FILE_PATH) .
-
-# Build and tag the cron image
-cron-image-tag:
-	docker build -t $(CRON_IMAGE_NAME) -f $(DOCKER_FILE_CRON_PATH) .
-
-# Build and tag the cron image
-queue-image-tag:
-	docker build -t $(QUEUE_IMAGE_NAME) -f $(DOCKER_FILE_QUEUE_PATH) .
-
-# Push the server image to the registry
-push-server: server-image-tag
-	docker push $(SERVER_IMAGE_NAME)
-
-# Push the cron image to the registry
-push-cron: cron-image-tag
-	docker push $(CRON_IMAGE_NAME)
-
-# Push the cron image to the registry
-push-queue: queue-image-tag
-	docker push $(QUEUE_IMAGE_NAME)
-
-# Combined target to build and push both images
-build-and-push-all: push-server push-cron
-	@echo "Both server and cron images have been built and pushed successfully."
 
 ################# TODO: SQLC #################
 # Generate SQLC code
