@@ -4,24 +4,13 @@ services:
     ports:
       - "8080:8080"
     environment:
-      LEGACY_URL: http://legacy-app:8000
       AUTH_SERVICE_URL: http://auth-service:8000
       USER_SERVICE_URL: http://user-service:8000
       NOTIFICATION_OTP_SERVICE_URL: http://notification-otp-service:8000
     depends_on:
-      - legacy-app
       - auth-service
       - user-service
       - notification-otp-service
-
-  legacy-app:
-    build: .
-    environment:
-      ENV: dev
-    depends_on:
-      - postgres
-      - redis
-      - rabbitmq
 
   auth-service:
     build: ./services/auth-service

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 )
 
 type Route struct {
+	Owner  string
 	Prefix string
 	Target *url.URL
 }
@@ -20,12 +22,11 @@ type Route struct {
 var fallbackIDCounter uint64
 
 type Gateway struct {
-	routes   []Route
-	fallback *url.URL
+	routes []Route
 }
 
-func New(routes []Route, fallback *url.URL) *Gateway {
-	return &Gateway{routes: routes, fallback: fallback}
+func New(routes []Route) *Gateway {
+	return &Gateway{routes: routes}
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,17 +36,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target := g.fallback
-	for _, route := range g.routes {
-		if matchesPrefix(r.URL.Path, route.Prefix) {
-			target = route.Target
-			break
-		}
-	}
+	target, owner := g.routeFor(r.URL.Path)
 	if target == nil {
 		http.NotFound(w, r)
 		return
 	}
+	log.Printf("gateway route owner=%s path=%s upstream=%s", owner, r.URL.Path, target.String())
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	originalDirector := proxy.Director
@@ -54,6 +50,15 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		prepareHeaders(req)
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func (g *Gateway) routeFor(path string) (*url.URL, string) {
+	for _, route := range g.routes {
+		if matchesPrefix(path, route.Prefix) {
+			return route.Target, route.Owner
+		}
+	}
+	return nil, ""
 }
 
 func prepareHeaders(req *http.Request) {
