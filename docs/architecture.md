@@ -2,7 +2,22 @@
 
 ## Overview
 
-This repository is transitioning into a lean Go microservice template. The target is a reusable single-service foundation with explicit runtime bootstrap, optional infrastructure adapters, transitional entrypoints, and starter deployment assets.
+This repository is transitioning into a lean Go microservice template and migration source for extracted auth, user, and notification/OTP services. The template target is a reusable single-service foundation with explicit runtime bootstrap, optional infrastructure adapters, transitional entrypoints, and starter deployment assets.
+
+## Microservice Decomposition Target
+
+```text
+client
+  → services/api-gateway
+      → services/auth-service
+      → services/user-service
+      → services/notification-otp-service
+      → legacy app fallback for non-migrated routes
+
+contracts owns OpenAPI and event schema compatibility.
+```
+
+The gateway owns route switching for `/v1/auth/*`, `/v1/user/*`, and `/v1/otp/*`. Legacy auth/user/OTP code remains available only as fallback until gateway metrics prove migrated flows no longer use it during the approved deprecation window.
 
 ## Current State
 

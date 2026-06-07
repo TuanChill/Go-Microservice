@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: User Service API
+  version: 1.0.0
+servers:
+  - url: http://user-service:8000
+security:
+  - serviceJwt: []
+paths:
+  /internal/users:
+    post:
+      operationId: createUser
+      summary: Create user profile record for auth registration
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserIdentity'
+        '409':
+          description: User already exists
+  /internal/users/{id}:
+    get:
+      operationId: getUserProfile
+      summary: Get user profile
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '404':
+          description: User not found
+    patch:
+      operationId: updateUserProfile
+      summary: Update user profile fields
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+    delete:
+      operationId: deactivateUser
+      summary: Deactivate user profile after auth/account closure decision
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestroyAccountResponse'
+components:
+  securitySchemes:
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: service-jwt
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+  schemas:
+    CreateUserRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    UserIdentity:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+    ProfileResponse:
+      type: object
+      required: [id, username, email, phone, hidden_phone_number, fullname, hidden_email, avatar, gender, two_factor_enabled, is_active, created_at]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        hidden_phone_number:
+          type: string
+        fullname:
+          type: string
+        hidden_email:
+          type: string
+        avatar:
+          type: string
+        gender:
+          type: integer
+        two_factor_enabled:
+          type: boolean
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        phone:
+          type: string
+        fullname:
+          type: string
+        avatar:
+          type: string
+        gender:
+          type: integer
+    DestroyAccountResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer

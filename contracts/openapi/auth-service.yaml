@@ -1,0 +1,222 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  version: 1.0.0
+servers:
+  - url: http://auth-service:8000
+security:
+  - serviceJwt: []
+paths:
+  /internal/auth/register:
+    post:
+      operationId: register
+      summary: Register a user credential and schedule verification
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '409':
+          description: Already registered for the same idempotency key or email
+  /internal/auth/login:
+    post:
+      operationId: login
+      summary: Login by email, phone, or username
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+  /internal/auth/refresh:
+    post:
+      operationId: refresh
+      summary: Refresh access token using refresh token and device context
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid or unavailable refresh token
+  /internal/auth/verify-account:
+    post:
+      operationId: verifyAccount
+      summary: Verify account by verification token
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyAccountRequest'
+      responses:
+        '200':
+          description: Account verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid or unavailable verification token
+  /internal/auth/password-reset:
+    post:
+      operationId: resetPassword
+      summary: Complete password reset
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordResponse'
+        '401':
+          description: Invalid or unavailable reset token
+components:
+  securitySchemes:
+    serviceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: service-jwt
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    RegistrationResponse:
+      type: object
+      required: [id, email, token, expires_at_token]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        token:
+          type: string
+        expires_at_token:
+          type: string
+          format: date-time
+    LoginRequest:
+      type: object
+      required: [identifier, password, device_id]
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+          minLength: 6
+        device_id:
+          type: string
+    LoginResponse:
+      type: object
+      required: [id, device_id, email, accessToken]
+      properties:
+        id:
+          type: integer
+        device_id:
+          type: string
+        email:
+          type: string
+          format: email
+        accessToken:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [refresh_token, device_id]
+      properties:
+        refresh_token:
+          type: string
+        device_id:
+          type: string
+    VerifyAccountRequest:
+      type: object
+      required: [user_id, verified_token, email]
+      properties:
+        user_id:
+          type: integer
+        verified_token:
+          type: string
+        email:
+          type: string
+          format: email
+    ResetPasswordRequest:
+      type: object
+      required: [token, user_id, password]
+      properties:
+        token:
+          type: string
+        user_id:
+          type: integer
+        password:
+          type: string
+          minLength: 6
+    ResetPasswordResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer

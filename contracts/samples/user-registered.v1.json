@@ -1,0 +1,13 @@
+{
+  "event_id": "evt-user-registered-1",
+  "event_type": "user.registered",
+  "event_version": 1,
+  "correlation_id": "corr-12345678",
+  "idempotency_key": "idem-register-0001",
+  "producer": "auth-service",
+  "occurred_at": "2026-06-07T10:00:00Z",
+  "data": {
+    "user_id": 42,
+    "email": "user@example.com"
+  }
+}

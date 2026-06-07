@@ -62,6 +62,21 @@ curl http://localhost:8000/health/ready
 
 The readiness endpoint supports dependency-aware callbacks, but current API wiring is transitional.
 
+## Run Microservice Decomposition Stack
+
+The local strangler stack uses nested service modules at `services/api-gateway`, `services/auth-service`, `services/user-service`, `services/notification-otp-service`, and `contracts`.
+
+```bash
+SERVICE_TOKEN=local-dev-token docker compose -f docker-compose.microservices.yml config
+SERVICE_TOKEN=local-dev-token docker compose -f docker-compose.microservices.yml up --build
+```
+
+The gateway listens on port `8080`, routes migrated `/v1/auth/*`, `/v1/user/*`, and `/v1/otp/*` traffic to extracted services, and keeps the legacy app as fallback for routes not migrated yet.
+
+## Legacy Cleanup Guard
+
+Do not delete legacy auth/user/OTP controllers, services, repos, models, or global runtime dependencies until staging or production gateway metrics prove migrated flows no longer hit legacy fallback during the approved deprecation window.
+
 ## Build Container Image
 
 ```bash

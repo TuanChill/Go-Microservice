@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.local/events/user-registered.v1.schema.json",
+  "title": "user.registered.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "event_version", "correlation_id", "idempotency_key", "producer", "occurred_at", "data"],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 8 },
+    "event_type": { "const": "user.registered" },
+    "event_version": { "const": 1 },
+    "correlation_id": { "type": "string", "minLength": 8 },
+    "idempotency_key": { "type": "string", "minLength": 16 },
+    "producer": { "type": "string", "minLength": 1 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_id", "email"],
+      "properties": {
+        "user_id": { "type": "integer" },
+        "email": { "type": "string", "format": "email" }
+      }
+    }
+  }
+}

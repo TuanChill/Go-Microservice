@@ -1,0 +1,59 @@
+services:
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      LEGACY_URL: http://legacy-app:8000
+      AUTH_SERVICE_URL: http://auth-service:8000
+      USER_SERVICE_URL: http://user-service:8000
+      NOTIFICATION_OTP_SERVICE_URL: http://notification-otp-service:8000
+    depends_on:
+      - legacy-app
+      - auth-service
+      - user-service
+      - notification-otp-service
+
+  legacy-app:
+    build: .
+    environment:
+      ENV: dev
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+
+  auth-service:
+    build: ./services/auth-service
+    environment:
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?SERVICE_TOKEN is required for local microservice compose}
+
+  user-service:
+    build: ./services/user-service
+    environment:
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?SERVICE_TOKEN is required for local microservice compose}
+
+  notification-otp-service:
+    build: ./services/notification-otp-service
+    environment:
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?SERVICE_TOKEN is required for local microservice compose}
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: go_microservice
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"

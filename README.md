@@ -82,6 +82,27 @@ make compose-config   # validate compose config
 make docker-build-api # build local API image
 ```
 
+## Microservice Decomposition Stack
+
+The extracted services live inside this repository as nested service modules:
+
+```text
+services/api-gateway
+services/auth-service
+services/user-service
+services/notification-otp-service
+contracts
+```
+
+Run the local strangler stack with:
+
+```bash
+SERVICE_TOKEN=local-dev-token docker compose -f docker-compose.microservices.yml config
+SERVICE_TOKEN=local-dev-token docker compose -f docker-compose.microservices.yml up --build
+```
+
+The gateway routes `/v1/auth/*`, `/v1/user/*`, and `/v1/otp/*` to extracted services and keeps the legacy app as fallback for non-migrated routes. Do not delete legacy auth/user/OTP paths until staging or production gateway metrics show no fallback usage for migrated flows during the approved deprecation window.
+
 ## Validation
 
 ```bash
