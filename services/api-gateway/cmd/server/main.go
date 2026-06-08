@@ -2,41 +2,56 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"api_gateway/internal/gateway"
+
+	"api_gateway/internal/clients"
+	"api_gateway/internal/handler"
 )
 
 func main() {
-	routes := []gateway.Route{
-		{Owner: "auth-service", Prefix: "/v1/auth", Target: mustURL(env("AUTH_SERVICE_URL", "http://localhost:8001"))},
-		{Owner: "user-service", Prefix: "/v1/user", Target: mustURL(env("USER_SERVICE_URL", "http://localhost:8002"))},
-		{Owner: "notification-otp-service", Prefix: "/v1/otp", Target: mustURL(env("NOTIFICATION_OTP_SERVICE_URL", "http://localhost:8003"))},
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	authAddr := env("AUTH_SERVICE_GRPC_ADDR", "localhost:9001")
+	userAddr := env("USER_SERVICE_GRPC_ADDR", "localhost:9002")
+	otpAddr := env("OTP_SERVICE_GRPC_ADDR", "localhost:9003")
+
+	c, err := clients.Dial(authAddr, userAddr, otpAddr)
+	if err != nil {
+		log.Fatalf("dial gRPC services: %v", err)
 	}
+	logger.Info("connected to gRPC backends",
+		"auth", authAddr, "user", userAddr, "otp", otpAddr)
 
 	port := env("PORT", "8080")
-	server := &http.Server{Addr: ":" + port, Handler: gateway.New(routes), ReadHeaderTimeout: 5 * time.Second}
-	log.Printf("api-gateway listening on :%s", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler.NewRouter(c.Auth, c.User, c.Otp),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	go func() {
+		logger.Info("api-gateway listening", "port", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down")
 }
 
-func env(key string, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return value
-}
-
-func mustURL(raw string) *url.URL {
-	parsed, err := gateway.ParseURL(raw)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return parsed
+	return fallback
 }

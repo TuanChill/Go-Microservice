@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "go_template/gen/go/user/v1;userv1";
+
+import "google/protobuf/timestamp.proto";
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  rpc DeactivateUser(DeactivateUserRequest) returns (DeactivateUserResponse);
+}
+
+message CreateUserRequest {
+  string email = 1;
+}
+
+message CreateUserResponse {
+  int32 id = 1;
+  string email = 2;
+}
+
+message GetProfileRequest {
+  int32 id = 1;
+}
+
+message GetProfileResponse {
+  int32 id = 1;
+  string username = 2;
+  string email = 3;
+  string phone = 4;
+  string hidden_phone_number = 5;
+  string fullname = 6;
+  string hidden_email = 7;
+  string avatar = 8;
+  int32 gender = 9;
+  bool two_factor_enabled = 10;
+  bool is_active = 11;
+  google.protobuf.Timestamp created_at = 12;
+}
+
+message UpdateProfileRequest {
+  int32 id = 1;
+  string username = 2;
+  string phone = 3;
+  string fullname = 4;
+  string avatar = 5;
+  int32 gender = 6;
+}
+
+message UpdateProfileResponse {
+  GetProfileResponse profile = 1;
+}
+
+message DeactivateUserRequest {
+  int32 id = 1;
+}
+
+message DeactivateUserResponse {
+  int32 id = 1;
+}

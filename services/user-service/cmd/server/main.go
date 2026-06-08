@@ -2,29 +2,54 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"time"
 
-	"user_service/internal/httpapi"
+	"google.golang.org/grpc"
+
+	pb "user_service/internal/gen/user/v1"
+	"user_service/internal/grpcapi"
 	"user_service/internal/user"
 )
 
 func main() {
-	serviceToken := os.Getenv("SERVICE_TOKEN")
-	if serviceToken == "" {
-		log.Fatal("SERVICE_TOKEN is required")
-	}
+	serviceToken := mustEnv("SERVICE_TOKEN")
 
-	router := httpapi.NewRouter(user.NewMemoryRepository(time.Now), serviceToken)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8000"
-	}
+	repo := user.NewMemoryRepository(time.Now)
 
-	server := &http.Server{Addr: ":" + port, Handler: router, ReadHeaderTimeout: 5 * time.Second}
-	log.Printf("user-service listening on :%s", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			grpcapi.RecoveryInterceptor,
+			grpcapi.LoggingInterceptor,
+			grpcapi.AuthInterceptor(serviceToken),
+			grpcapi.CorrelationInterceptor,
+		),
+	)
+	pb.RegisterUserServiceServer(grpcServer, grpcapi.NewServer(repo))
+
+	addr := ":" + env("GRPC_PORT", "9002")
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("listen %s: %v", addr, err)
 	}
+	log.Printf("user-service gRPC listening on %s", addr)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("serve: %v", err)
+	}
+}
+
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("%s is required", key)
+	}
+	return v
+}
+
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

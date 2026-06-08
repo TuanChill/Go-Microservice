@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package otp.v1;
+
+option go_package = "go_template/gen/go/otp/v1;otpv1";
+
+import "google/protobuf/timestamp.proto";
+
+service OtpService {
+  rpc RequestOtp(RequestOtpRequest) returns (RequestOtpResponse);
+  rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse);
+}
+
+service NotificationService {
+  rpc SendEmailVerification(SendEmailVerificationRequest) returns (SendEmailVerificationResponse);
+  rpc SendPasswordReset(SendPasswordResetRequest) returns (SendPasswordResetResponse);
+}
+
+message RequestOtpRequest {
+  int32 user_id = 1;
+  string email = 2;
+  string purpose = 3;
+}
+
+message RequestOtpResponse {
+  int32 id = 1;
+  int32 user_id = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message VerifyOtpRequest {
+  string otp = 1;
+}
+
+message VerifyOtpResponse {
+  int32 user_id = 1;
+  string email = 2;
+}
+
+message SendEmailVerificationRequest {
+  string idempotency_key = 1;
+  string email = 2;
+  string token = 3;
+  int32 user_id = 4;
+  string expires_at_token = 5;
+}
+
+message SendEmailVerificationResponse {
+  string idempotency_key = 1;
+}
+
+message SendPasswordResetRequest {
+  string idempotency_key = 1;
+  string email = 2;
+  string token = 3;
+  int32 user_id = 4;
+}
+
+message SendPasswordResetResponse {
+  string idempotency_key = 1;
+}

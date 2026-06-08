@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "go_template/gen/go/auth/v1;authv1";
+
+import "google/protobuf/timestamp.proto";
+
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc VerifyAccount(VerifyAccountRequest) returns (VerifyAccountResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+}
+
+message RegisterResponse {
+  int32 id = 1;
+  string email = 2;
+  string token = 3;
+  google.protobuf.Timestamp expires_at_token = 4;
+}
+
+message LoginRequest {
+  string identifier = 1;
+  string password = 2;
+  string device_id = 3;
+}
+
+message LoginResponse {
+  int32 id = 1;
+  string device_id = 2;
+  string email = 3;
+  string access_token = 4;
+  string refresh_token = 5;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message VerifyAccountRequest {
+  int32 user_id = 1;
+  string verified_token = 2;
+  string email = 3;
+}
+
+message VerifyAccountResponse {
+  int32 id = 1;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  int32 user_id = 2;
+  string password = 3;
+}
+
+message ResetPasswordResponse {
+  int32 id = 1;
+}
